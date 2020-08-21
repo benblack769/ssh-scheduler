@@ -2,7 +2,7 @@ Design: Host over TCP, port 51241
 
 Controller daemon:
   * machines config
-  * Should be robust to worker crashes/restarts
+  * Should be robust to controller crashes/restarts
 
 Worker daemon:
   * Controller daemon IP
@@ -41,7 +41,6 @@ Job viewing:
     * print in queue order
     * Active/inactive
     * machine ID for active jobs (optional)
-    *
   * Get job summary status for
   * Get active job summary for specific machine
 
