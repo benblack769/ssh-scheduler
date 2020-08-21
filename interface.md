@@ -2,9 +2,11 @@ Design: Host over TCP, port 51241
 
 Controller daemon:
   * machines config
+  * Should be robust to worker crashes/restarts
 
 Worker daemon:
   * Controller daemon IP
+  * Should be robust to controller crashes/restarts
 
 Client (on controller process):
   * ssh login to data folders
@@ -17,7 +19,7 @@ Client (on controller process):
 Job starting:
   * Travis-like yaml file with global/local options
     * Batch ID
-    * Job ID
+    * Job ID (allow array notation, stores index in bash variable JOB_ID)
     * Job resources
       * exclusive (optional, default False)
       * machine ID (optional, default None)
@@ -46,7 +48,8 @@ Job viewing:
 Job management:
   * Kill job
   * Kill batch
-  * Change job/batch priority (warns if job is active already)
+  * Change job/batch priority (warns if job is active already, but still changes priority)
+  * Stop jobs on specific machine and disconnect machine (and put them back on the queue with +1 priority)
 
 Worker viewing:
   * Get machine status (responsive/unresponsive)
