@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import argparse
 import tempfile
 import yaml
@@ -6,11 +7,17 @@ import base64
 import os
 
 
+parser = argparse.ArgumentParser(description='Run a simple command')
+parser.add_argument('--copy-forward', nargs='*', default=["./"], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
+parser.add_argument('--copy-backwards', nargs='*', default=["./"], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
+parser.add_argument('--machine', default="local", help='machine id')
+parser.add_argument('--job-name', default="__random__", help='job name')
+parser.add_argument('command')
+
 def load_data_from_yaml(yaml_path,computer_override):
     machine_path = os.path.join(yaml_path,"{}.yaml".format(computer_override))
     machine_data = yaml.safe_load(open(machine_path))
     return machine_data
-
 
 def rand_fname(suffix=""):
     return base64.b16encode(os.urandom(12)).decode("utf-8") + suffix
@@ -26,14 +33,6 @@ def make_ssh_command(machine_config, command):
     print(f"{ssh_command} '{command}'")
     final_command = ssh_command.split(" ") + [command]
     return final_command
-
-
-parser = argparse.ArgumentParser(description='Run a simple command')
-parser.add_argument('--copy-forward', nargs='*', default=["./"], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
-parser.add_argument('--copy-backwards', nargs='*', default=["./"], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
-parser.add_argument('--machine', default="local", help='machine id')
-parser.add_argument('--job-name', default="__random__", help='job name')
-parser.add_argument('command', nargs='*')
 
 args = parser.parse_args()
 yaml_path = os.path.expanduser("~/.local/var/")
@@ -68,7 +67,7 @@ if True:
 
 try:
     print("running command:")
-    base_run_command = f"cd {run_folder} && " + " ".join(args.command)
+    base_run_command = f"cd {run_folder} && " + (args.command)
     run_command = make_ssh_command(machine_config, base_run_command)
     subprocess.run(run_command)
 except:
