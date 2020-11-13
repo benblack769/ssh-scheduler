@@ -2,6 +2,7 @@
 import argparse
 import tempfile
 import yaml
+import json
 import subprocess
 import base64
 import os
@@ -28,8 +29,12 @@ def make_scp_command_forward(source_file, dest_file, machine_config):
 def make_scp_command_backward(source_file, dest_file, machine_config):
     return f"scp -P {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']}:{dest_file} {source_file}".split(" ")
 
+def make_interactive_command(command):
+    command = f'echo {json.dumps(command)} | stdbuf -i0 -o0 -e0  bash -i '
+    return command
+
 def make_ssh_command(machine_config, command):
-    ssh_command = f"ssh -p {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']}"
+    ssh_command = f"ssh -t -p {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']}"
     print(f"{ssh_command} '{command}'")
     final_command = ssh_command.split(" ") + [command]
     return final_command
@@ -68,7 +73,8 @@ if True:
 try:
     print("running command:")
     base_run_command = f"cd {run_folder} && " + (args.command)
-    run_command = make_ssh_command(machine_config, base_run_command)
+    interactive_command = make_interactive_command(base_run_command)
+    run_command = make_ssh_command(machine_config, interactive_command)
     subprocess.run(run_command)
 except:
     pass
@@ -89,7 +95,7 @@ with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
     subprocess.run(copy_backward_cmd)
 
     print("cleaning up remote:")
-    cleanup_command_base = f"rm -r {run_folder}; rm {remote_tar_fname_back}"
+    cleanup_command_base = f"rm -rf {run_folder}; rm {remote_tar_fname_back}"
     cleanup_command = make_ssh_command(machine_config, cleanup_command_base)
     subprocess.run(cleanup_command)
 
