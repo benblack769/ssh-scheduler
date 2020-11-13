@@ -17,10 +17,15 @@ def parse_cpu_usage(usage_str):
       PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND
     16635 ben       20   0 20.265g 3.144g 508932 R 106.7 20.2 496:57.22 python
     '''
-    print(usage_str)
-    cpu, mem = usage_str.strip().split("\n")[2:4]
+    cpu, mem, swap = usage_str.strip().split("\n")[2:5]
     cpu_usage = float(cpu.split()[1])
-    mem_free = int(mem.split(",")[1].strip().split()[0])
+    mem_entry = swap.split(".")[1].strip().split()[0]
+    if "+" in mem_entry:
+        mem_entry = int(mem_entry.split("+")[0])*10
+    else:
+        mem_entry = int(mem_entry)#.split("+")[0]*10
+    mem_free = mem_entry//1024
+    print(mem_free)
     return {"cpu_usage": cpu_usage, "mem_free": mem_free}
 
 def get_gpu_info():
@@ -38,7 +43,6 @@ def parse_gpu_info(gpu_info_str):
     if not gpu_info_str.strip():
         return {"gpus": []}
     else:
-        print(gpu_info_str)
         gpus = gpu_info_str.strip().split("\n")[1:]
         gpu_infos = []
         for i, gpu_line in enumerate(gpus):
@@ -69,4 +73,4 @@ if __name__ == "__main__":
     import subprocess
     out = subprocess.run(get_full_command(),shell=True,stdout=subprocess.PIPE)
     parsed = parse_full_output(out.stdout.decode("utf-8"))
-    print(parsed)
+    print(json.dumps(parsed))
