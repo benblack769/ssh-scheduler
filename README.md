@@ -2,6 +2,8 @@
 
 A minimal-setup ssh based distributed batch processing system for ML.
 
+Intended use case is for a researcher running many experiments on many different machines, but without the headache of setting up and using SLURM or Kubernettes, and without the stress and error of sshing into each machine and running each job by hand.
+
 ## Install
 
 ```
@@ -91,7 +93,7 @@ CPU utilization is measured in cores, GPU utilization in proportions.
 
 ```
 execute_batch example/batch_script.sh --machines example/machine.yaml \
-    --num-cpus=8 --gpu-utilization=0.5 
+    --num-cpus=8 --gpu-utilization=0.5
 ```
 
 
