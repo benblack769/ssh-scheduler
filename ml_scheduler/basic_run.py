@@ -33,7 +33,17 @@ def make_ssh_command(machine_config, command, open_terminal=False):
     final_command = ssh_command.split(" ") + ["-o","StrictHostKeyChecking no",command]
     return final_command
 
-def main(args):
+def main():
+    parser = argparse.ArgumentParser(description='Run a simple command')
+    parser.add_argument('--copy-forward', default="./", help='Folders to copy when running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--machine', default="local", help='machine id')
+    parser.add_argument('--job-name', default="__random__", help='job name')
+    parser.add_argument('--verbose', action="store_true", help='print debugging information to stderr')
+    parser.add_argument('command')
+
+    args = parser.parse_args()
+
     machine_config = load_data_from_yaml(args.machine)
 
     job_name = rand_fname() if args.job_name == "__random__" else args.job_name
@@ -98,14 +108,7 @@ def main(args):
         print(tararg)
         subprocess.run(tararg,shell=True)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run a simple command')
-    parser.add_argument('--copy-forward', default="./", help='Folders to copy when running the command. Defaults to everything in the current working directory')
-    parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
-    parser.add_argument('--machine', default="local", help='machine id')
-    parser.add_argument('--job-name', default="__random__", help='job name')
-    parser.add_argument('--verbose', action="store_true", help='print debugging information to stderr')
-    parser.add_argument('command')
 
-    args = parser.parse_args()
-    main(args)
+
+if __name__ == "__main__":
+    main()

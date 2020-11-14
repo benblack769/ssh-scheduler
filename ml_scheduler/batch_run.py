@@ -10,8 +10,8 @@ import time
 import copy
 import os
 import signal
-import basic_run
-from query_machine_info import get_full_command, parse_full_output
+from ml_scheduler import basic_run
+from ml_scheduler.query_machine_info import get_full_command, parse_full_output
 
 def run_all(commands):
     procs = []
@@ -164,9 +164,6 @@ def main():
             for proc in procs:
                 if proc is not None:
                     proc[1].wait()
-
-
-
 
 
 if __name__ == "__main__":
