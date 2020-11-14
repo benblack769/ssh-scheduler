@@ -1,7 +1,10 @@
 import json
 def get_cpu_usage():
     '''
-    top -n1 -b -i
+    top
+    -n1     # one iteration
+    -b      # machine readable mode
+    -i      # ignore inactive processes
     '''
     return f"top -n1 -b -i"
 
@@ -18,7 +21,7 @@ def parse_cpu_usage(usage_str):
     16635 ben       20   0 20.265g 3.144g 508932 R 106.7 20.2 496:57.22 python
     '''
     cpu, mem, swap = usage_str.strip().split("\n")[2:5]
-    cpu_usage = float(cpu.split()[1])
+    cpu_usage = float(cpu.split()[1])/100
     mem_entry = swap.split(".")[1].strip().split()[0]
     if "+" in mem_entry:
         mem_entry = int(mem_entry.split("+")[0])*10
@@ -28,17 +31,29 @@ def parse_cpu_usage(usage_str):
     print(mem_free)
     return {"cpu_usage": cpu_usage, "mem_free": mem_free}
 
+def get_cpu_count():
+    return "lscpu"
+
+def parse_cpu_count(usage_str):
+    lines = usage_str.split("\n")
+    cpu_count = 16 # default 16
+    for line in lines:
+        if "CPU(s):" in line:
+            cpu_count = int(line.strip().split()[1])
+            break
+    return {"cpu_count": cpu_count}
+
 def get_gpu_info():
     '''
-    nvidia-smi --query-gpu=name,memory.total,memory.free,memory.used --format=csv
+    from https://nvidia.custhelp.com/app/answers/detail/a_id/3751/~/useful-nvidia-smi-queries
     '''
-    return "nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv"
+    return "nvidia-smi --query-gpu=name,memory.total,memory.free,utilization.gpu --format=csv"
 
 def parse_gpu_info(gpu_info_str):
     '''
-    name, memory.total [MiB], memory.free [MiB]
-    GeForce GTX 1080 Ti, 11178 MiB, 10403 MiB
-    GeForce GTX 1080 Ti, 11176 MiB, 3551 MiB
+    name, memory.total [MiB], memory.free [MiB], utilization.gpu [%]
+    GeForce GTX 1080 Ti, 11178 MiB, 10403 MiB, 25 %
+    GeForce GTX 1080 Ti, 11176 MiB, 3551 MiB, 28 %
     '''
     if not gpu_info_str.strip():
         return {"gpus": []}
@@ -46,27 +61,32 @@ def parse_gpu_info(gpu_info_str):
         gpus = gpu_info_str.strip().split("\n")[1:]
         gpu_infos = []
         for i, gpu_line in enumerate(gpus):
-            name, mem, free = gpu_line.split(",")
+            name, mem, free, util = gpu_line.split(",")
             num_free = int(free.strip().split()[0])
             num_mem = int(mem.strip().split()[0])
+            utilization = float(util.strip().split()[0])/100
             gpu_infos.append({
                 "name": name,
                 "mem": num_mem,
                 "free": num_free,
+                "utilization": utilization,
             })
 
         return {"gpus": gpu_infos}
 
 def get_full_command():
-    return f"{get_cpu_usage()} && printf \"<<>>\" && {get_gpu_info()}"
+    return f"{get_cpu_usage()} && printf \"<<>>\" && {get_cpu_count()} && printf \"<<>>\" &&{get_gpu_info()}"
 
 def parse_full_output(out_str):
     beg = out_str.find("<<>>")
+    mid = out_str.rfind("<<>>")
     cpu_data = out_str[:beg]
-    gpu_data = out_str[beg+5:]
+    cpu_count_data = out_str[beg+5:mid]
+    gpu_data = out_str[mid+5:]
     cpu_entries = parse_cpu_usage(cpu_data)
     gpu_entries = parse_gpu_info(gpu_data)
-    return {**cpu_entries, **gpu_entries}
+    cpu_count_entries = parse_cpu_count(cpu_count_data)
+    return {**cpu_entries, **cpu_count_entries, **gpu_entries}
 
 if __name__ == "__main__":
     # test

@@ -43,38 +43,40 @@ def find_all_machine_info(machines):
 
 def machine_limit_over(machine_limit):
     return (machine_limit['reserved'] > 1 or
-        machine_limit['cpu_usage'] > 200 or
+        machine_limit['cpu_count'] < -2 or
         machine_limit['mem_free'] < 0 or
         any(gpu['free'] < 0 for gpu in machine_limit['gpus']) or
+        any(gpu['utilization'] > 1.6 for gpu in machine_limit['gpus']) or
         any(gpu['reserved'] > 1 for gpu in machine_limit['gpus']))
 
 def subtract_process_req(machine_limit, args):
     if args.reserve:
         machine_limit['reserve'] += 1
-    NUM_CPUS_ASSUMED = 16  # TODO: replace with actual CPU count (need to get in query_machine_info.py)
-    machine_limit['cpu_usage'] += args.num_cpus/NUM_CPUS_ASSUMED
+    machine_limit['cpu_count'] -= args.num_cpus
     machine_limit['mem_free'] -= args.memory_required
     gpu_idx = 0
     if not args.no_gpu_required:
         gpu_choice = None
         for i,gpu in enumerate(machine_limit['gpus']):
-            if gpu_choice is None or gpu_choice['reserved'] or gpu_choice['free'] < gpu['free']:
+            if gpu_choice is None or gpu_choice['reserved'] or gpu_choice['free'] - args.gpu_memory_required <= 0 or gpu_choice['utilization'] > gpu['utilization']:
                 gpu_choice = gpu
                 gpu_idx = i
         gpu_choice['free'] -= args.gpu_memory_required
+        gpu_choice['utilization'] += args.gpu_utilization
         if not args.no_reserve_gpu:
             gpu_choice['reserved'] += 1
     return gpu_idx
 
 def init_machine_limit(machine_limit):
     machine_limit['reserved'] = 0
+    machine_limit['cpu_count'] *= (1-machine_limit['cpu_usage'])
     for gpu in machine_limit['gpus']:
         gpu['reserved'] = 0
 
 def get_process_limit(machine_limit, args):
     '''
     machine limit looks like this:
-    {"cpu_usage": 25.8, "mem_free": 11486128, "gpus": [{"name": "GeForce GTX 1070", "mem": 8117, "free": 560}]}
+    {"cpu_usage": 0.124, "mem_free": 30607, "cpu_count": 24, "gpus": [{"name": "GeForce RTX 2060", "mem": 5934, "free": 5933, "utilization": 0.0}, {"name": "GeForce RTX 2060", "mem": 5932, "free": 5931, "utilization": 0.0}]}
     '''
     machine_limit = copy.deepcopy(machine_limit)
 
@@ -110,7 +112,7 @@ def main():
     parser.add_argument('--no-reserve-gpu', action="store_true", help='reserve entire machine for job')
     parser.add_argument('--no-gpu-required', action="store_true", help='is a gpu required for the job')
     parser.add_argument('--gpu-memory-required', type=int, default=1000, help='gpu memory to reserve for the job')
-    parser.add_argument('--gpu-compute-required', type=int, default=15, help='gpu compute ')
+    parser.add_argument('--gpu-utilization', type=float, default=0.75, help='gpu utilization consumed')
     parser.add_argument('--verbose', action="store_true", help='print out debug information')
     parser.add_argument('--dry-run', action="store_true", help='just print out first round of commands')
     parser.add_argument('filename', help="a file where each line contains a command")
@@ -137,6 +139,7 @@ def main():
         all_done = False
         while not all_done:
             all_done = True
+            waiting_only = True
             for mac,gpu_choices,procs in zip(args.machines, machine_gpu_choices, machine_procs):
                 for i,(gpu_choice, proc) in enumerate(zip(gpu_choices, procs)):
                     if proc is not None and proc[1].poll() is not None:
@@ -162,9 +165,12 @@ def main():
                                 proc = procs[i] = (line_num, process)
                         line_num += 1
                         all_done = False
+                        waiting_only = False
+
                     if proc is not None:
                         all_done = False
-            time.sleep(1)
+            if waiting_only:
+                time.sleep(1)
     except BaseException as be:
         print("interrupting tasks")
         for procs in machine_procs:

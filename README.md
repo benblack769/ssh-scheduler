@@ -55,7 +55,7 @@ There are three types of hardware requirements: reservations, memory and compute
 
 * A reserved machine or reserved GPU can only be used by one process.
 * Free memory on remote machine is fetched when batch script runs. The total requested memory of jobs allocated to the system is not allowed to exceed the free memory in that system
-* Free CPU and GPU utilization is fetched when batch script runs. A 2x overload of utilization is tolerated, as systems often work quite well under overutilization due to efficient OS level resource allocation. (TODO: not yet implemented!)
+* Free CPU and GPU utilization is fetched when batch script runs. A small overload of utilization is tolerated, as systems often work quite well under overutilization due to efficient OS level resource allocation.
 
 
 ### Step 4: Run job
@@ -84,6 +84,16 @@ Memory is measured in megabytes. Note that GPUs are reserved by default, must be
 execute_batch example/batch_script.sh --machines example/machine.yaml \
     --memory-required=10000 --gpu-memory-required=3000 --no-reserve-gpu
 ```
+
+**Change required utilization**
+
+CPU utilization is measured in cores, GPU utilization in proportions.
+
+```
+execute_batch example/batch_script.sh --machines example/machine.yaml \
+    --num-cpus=8 --gpu-utilization=0.5 
+```
+
 
 **Reserve entire machine**
 
