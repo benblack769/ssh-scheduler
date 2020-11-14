@@ -10,7 +10,17 @@ import os
 yaml_path = os.path.expanduser("~/.local/var/")
 
 def load_data_from_yaml(computer_override):
-    machine_path = os.path.join(yaml_path,"{}.yaml".format(computer_override))
+    global_path = os.path.join(yaml_path,"{}".format(computer_override))
+    if os.path.exists(computer_override):
+        machine_path = computer_override
+    elif os.path.exists(computer_override+".yaml"):
+        machine_path = computer_override+".yaml"
+    elif os.path.exists(global_path):
+        machine_path = global_path
+    elif os.path.exists(global_path+".yaml"):
+        machine_path = global_path+".yaml"
+    else:
+        raise RuntimeError(f"Machine config not found at {yaml_path}{computer_override}.yaml or at {computer_override}.yaml. Please define a correct config")
     machine_data = yaml.safe_load(open(machine_path))
     return machine_data
 
@@ -28,16 +38,16 @@ def make_interactive_command(command):
     return command
 
 def make_ssh_command(machine_config, command, open_terminal=False):
-    ssh_command = f"ssh -T -p {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']}"
+    ssh_command = f"ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=5 -p {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']}"
     print(f"{ssh_command} '{command}'")
-    final_command = ssh_command.split(" ") + ["-o","StrictHostKeyChecking no",command]
+    final_command = ssh_command.split(" ") + [command]
     return final_command
 
 def main():
     parser = argparse.ArgumentParser(description='Run a simple command')
     parser.add_argument('--copy-forward', default="./", help='Folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
-    parser.add_argument('--machine', default="local", help='machine id')
+    parser.add_argument('--machine', help='machine id', required=True)
     parser.add_argument('--job-name', default="__random__", help='job name')
     parser.add_argument('--verbose', action="store_true", help='print debugging information to stderr')
     parser.add_argument('command')
@@ -78,10 +88,11 @@ def main():
         base_run_command = f"cd {run_folder} && " + (args.command)
         interactive_command = make_interactive_command(base_run_command)
         run_command = make_ssh_command(machine_config, interactive_command)#, open_terminal=True)
-        subprocess.run(run_command)
+        main_cmd = subprocess.run(run_command)
+        returncode = main_cmd.returncode
     except:
-        pass
-
+        returncode = 1
+        
     if True:
         print("collecting data on remote:")
         remote_tar_fname_back = "/tmp/"+rand_fname(".tar")
@@ -108,6 +119,7 @@ def main():
         print(tararg)
         subprocess.run(tararg,shell=True)
 
+    exit(returncode)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,8 @@ import signal
 from ml_scheduler import basic_run
 from ml_scheduler.query_machine_info import get_full_command, parse_full_output
 
+my_folder = os.path.dirname(os.path.realpath(__file__))
+
 def run_all(commands):
     procs = []
     for command in commands:
@@ -33,6 +35,9 @@ def find_all_machine_info(machines):
     cmd = get_full_command()
     commands = [basic_run.make_ssh_command(mac, cmd) for mac in machines]
     outputs = run_all(commands)
+    if not all(outputs):
+        fail_machines = [mach for out,mach in zip(outputs, machines) if out is None]
+        raise RuntimeError("could not connect to machines: "+json.dumps(fail_machines))
     parsed_outs = [parse_full_output(out) for out in outputs]
     return parsed_outs
 
@@ -86,15 +91,18 @@ def get_process_limit(machine_limit, args):
     return gpu_choices
 
 def make_basic_run_command(machine, job_name, command, gpu_choice, args):
-    basic_cmd = f"basic_run.py --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
+    basic_cmd = f"python {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
     cmd = basic_cmd + [command]
     return cmd
 
 def main():
-    parser = argparse.ArgumentParser(description='Run a batched command')
+    parser = argparse.ArgumentParser(
+        description='Run a batched command',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument('--copy-forward', nargs='*', default=["./"], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=["./"], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
-    parser.add_argument('--machines', nargs='*', default=["local"],help='machine id')
+    parser.add_argument('--machines', nargs='*', help='machine id', required=True)
     parser.add_argument('--job-name', default="__random__", help='job name')
     parser.add_argument('--num-cpus', type=int, default=1, help='cpus to reserve for the job')
     parser.add_argument('--memory-required', type=int, default=7000, help='memory to reserve for the job')
@@ -117,8 +125,9 @@ def main():
     print("machine limits: ", {name:limit for name, limit in zip(args.machines,machine_proc_limits)})
     print("machine gpu choices:",machine_gpu_choices)
     machine_procs = [[None for i in range(limit)] for limit in machine_proc_limits]
+    save_filename = args.filename.replace("/","_")
     for line_num in range(len(lines)):
-        job_name = f"{args.filename}.{line_num+1}"
+        job_name = f"{save_filename}.{line_num+1}"
         if os.path.exists(f"./job_results/{job_name}"):
             print(f"WARNING: job results already exists for line {line_num+1}, skipping evaluation: delete if you wish to rerun")
 
@@ -131,11 +140,14 @@ def main():
             for mac,gpu_choices,procs in zip(args.machines, machine_gpu_choices, machine_procs):
                 for i,(gpu_choice, proc) in enumerate(zip(gpu_choices, procs)):
                     if proc is not None and proc[1].poll() is not None:
-                        print("finished: ",proc[0])
+                        message = "finished" if proc[1].returncode == 0 else "failed"
+                        finished_num = proc[0]
+                        job_name = f"{save_filename}.{finished_num+1}"
+                        print(f"{message}: {job_name}; {lines[finished_num].strip()}")
                         proc = procs[i] = None
                     if proc is None and line_num < len(lines):
                         command = f"export CUDA_VISIBLE_DEVICES={gpu_choice} && {lines[line_num].strip()}"
-                        job_name = f"{args.filename}.{line_num+1}"
+                        job_name = f"{save_filename}.{line_num+1}"
                         if os.path.exists(f"./job_results/{job_name}"):
                             print("skipping", command)
                         else:
@@ -143,17 +155,17 @@ def main():
                             if args.verbose or args.dry_run:
                                 print(" ".join(job_cmd))
                             if not args.dry_run:
-                                print("started:", command)
+                                print(f"started: {job_name};  {command}")
                                 stdout_file = open(f"./job_results/{job_name}.out",'a',buffering=1)
                                 stderr_file = open(f"./job_results/{job_name}.err",'a',buffering=1)
-                                process = subprocess.Popen(job_cmd,stdout=stdout_file, stderr=stderr_file,start_new_session=True)#,creationflags=subprocess.DETACHED_PROCESS)
-                                proc = procs[i] = (command, process)
+                                process = subprocess.Popen(job_cmd,stdout=stdout_file, stderr=stderr_file)#,creationflags=subprocess.DETACHED_PROCESS)
+                                proc = procs[i] = (line_num, process)
                         line_num += 1
                         all_done = False
                     if proc is not None:
                         all_done = False
             time.sleep(1)
-    except BaseException:
+    except BaseException as be:
         print("interrupting tasks")
         for procs in machine_procs:
             for proc in procs:
@@ -164,6 +176,7 @@ def main():
             for proc in procs:
                 if proc is not None:
                     proc[1].wait()
+        raise be
 
 
 if __name__ == "__main__":

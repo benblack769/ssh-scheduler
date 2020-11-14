@@ -1,0 +1,7 @@
+username: ben       # Replace with your username on the machine
+ip: 105.29.123.241  # Replace with your machine's url or IP address
+port: 22    # leave at default value of 22 unless you know what you are doing
+# replace with a path to an ssh key to the machine (MUST BE PASSWORDLESS SSH KEY)
+# for a guide on how to set up passwordless ssh see a guide such as
+# https://www.redhat.com/sysadmin/passwordless-ssh
+ssh_key_path: ~/.ssh/id_ssh_key
