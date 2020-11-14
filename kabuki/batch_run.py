@@ -10,8 +10,8 @@ import time
 import copy
 import os
 import signal
-from ml_scheduler import basic_run
-from ml_scheduler.query_machine_info import get_full_command, parse_full_output
+from kabuki import basic_run
+from kabuki.query_machine_info import get_full_command, parse_full_output
 
 my_folder = os.path.dirname(os.path.realpath(__file__))
 

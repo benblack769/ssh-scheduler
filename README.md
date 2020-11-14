@@ -1,4 +1,4 @@
-# ml-scheduler
+# Kabuki
 
 A minimal-setup ssh based distributed batch processing system for ML.
 

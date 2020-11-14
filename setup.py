@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="ml_scheduler",
+    name="kabuki",
     version="0.0.1",
     author="PettingZoo Team",
     author_email="justinkterry@gmail.com",
