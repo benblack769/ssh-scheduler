@@ -46,12 +46,12 @@ def machine_limit_over(machine_limit):
         machine_limit['cpu_count'] < -2 or
         machine_limit['mem_free'] < 0 or
         any(gpu['free'] < 0 for gpu in machine_limit['gpus']) or
-        any(gpu['utilization'] > 1.6 for gpu in machine_limit['gpus']) or
+        any(gpu['utilization'] > 1.2 for gpu in machine_limit['gpus']) or
         any(gpu['reserved'] > 1 for gpu in machine_limit['gpus']))
 
 def subtract_process_req(machine_limit, args):
     if args.reserve:
-        machine_limit['reserve'] += 1
+        machine_limit['reserved'] += 1
     machine_limit['cpu_count'] -= args.num_cpus
     machine_limit['mem_free'] -= args.memory_required
     gpu_idx = 0
@@ -93,7 +93,7 @@ def get_process_limit(machine_limit, args):
     return gpu_choices
 
 def make_basic_run_command(machine, job_name, command, gpu_choice, args):
-    basic_cmd = f"python {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
+    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
     cmd = basic_cmd + [command]
     return cmd
 
@@ -105,7 +105,6 @@ def main():
     parser.add_argument('--copy-forward', nargs='*', default=["./"], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=["./"], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
     parser.add_argument('--machines', nargs='*', help='machine id', required=True)
-    parser.add_argument('--job-name', default="__random__", help='job name')
     parser.add_argument('--num-cpus', type=int, default=1, help='cpus to reserve for the job')
     parser.add_argument('--memory-required', type=int, default=7000, help='memory to reserve for the job')
     parser.add_argument('--reserve', action="store_true", help='reserve entire machine for job')
@@ -149,7 +148,8 @@ def main():
                         print(f"{message}: {job_name}; {lines[finished_num].strip()}")
                         proc = procs[i] = None
                     if proc is None and line_num < len(lines):
-                        command = f"export CUDA_VISIBLE_DEVICES={gpu_choice} && {lines[line_num].strip()}"
+                        export_prefix = f"export CUDA_VISIBLE_DEVICES={gpu_choice} &&" if not args.reserve and not args.no_gpu_required else ""
+                        command = f"{export_prefix} {lines[line_num].strip()}"
                         job_name = f"{save_filename}.{line_num+1}"
                         if os.path.exists(f"./job_results/{job_name}"):
                             print("skipping", command)

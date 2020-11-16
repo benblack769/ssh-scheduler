@@ -65,7 +65,7 @@ def main():
         fname = tarfile.name
 
         print("preparing files for transfer:")
-        tararg = f"tar cfm {fname} ./".split(" ")
+        tararg = f"tar --exclude job_results --exclude .git -cmf {fname} ./".split(" ")
         print(f"cd {args.copy_forward} && "+" ".join(tararg))
         subprocess.run(tararg,cwd=args.copy_forward)
 
@@ -92,7 +92,7 @@ def main():
         returncode = main_cmd.returncode
     except:
         returncode = 1
-        
+
     if True:
         print("collecting data on remote:")
         remote_tar_fname_back = "/tmp/"+rand_fname(".tar")

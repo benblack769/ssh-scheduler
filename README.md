@@ -99,6 +99,8 @@ execute_batch example/batch_script.sh --machines example/machine.yaml \
 
 **Reserve entire machine**
 
+When entire machine is reserved or no GPU is requested, CUDA_VISIBLE_DEVICES will not be set. 
+
 ```
 execute_batch example/batch_script.sh --machines example/machine.yaml \
     --reserve
