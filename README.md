@@ -1,3 +1,5 @@
+# This library is agressively beta and will recieve many further refinements, but currently is mostly functional for our internal use
+
 # Kabuki
 
 A minimal-setup ssh based distributed batch processing system for ML.
