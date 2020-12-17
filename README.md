@@ -2,6 +2,10 @@
 
 # Kabuki
 
+<p align="center">
+    <img src="Kabuki_Text.png" width="500px"/>
+</p>
+
 A minimal-setup ssh based distributed batch processing system for ML.
 
 Intended use case is for a researcher running many experiments on many different machines, but without the headache of setting up and using SLURM or Kubernettes, and without the stress and error of sshing into each machine and running each job by hand.
