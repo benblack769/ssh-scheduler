@@ -93,7 +93,7 @@ def get_process_limit(machine_limit, args):
     return gpu_choices
 
 def make_basic_run_command(machine, job_name, command, gpu_choice, args):
-    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(json.dumps(a) for a in args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
+    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
     cmd = basic_cmd + [command]
     return cmd
 
