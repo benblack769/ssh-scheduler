@@ -45,7 +45,7 @@ def make_ssh_command(machine_config, command, open_terminal=False):
 
 def main():
     parser = argparse.ArgumentParser(description='Run a simple command')
-    parser.add_argument('--copy-forward', default="./", help='Folders to copy when running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-forward', nargs='*', default=[], help='Folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
     parser.add_argument('--machine', help='machine id', required=True)
     parser.add_argument('--job-name', default="__random__", help='job name')
@@ -65,9 +65,9 @@ def main():
         fname = tarfile.name
 
         print("preparing files for transfer:")
-        tararg = f"tar --exclude job_results --exclude .git -cmf {fname} ./".split(" ")
-        print(f"cd {args.copy_forward} && "+" ".join(tararg))
-        subprocess.run(tararg,cwd=args.copy_forward)
+        tararg = f"tar --exclude job_results --exclude .git -cmf {fname} {' '.join(args.copy_forward)}"
+        print(tararg)
+        subprocess.run(tararg,shell=True)
 
         print("transfering files to remote:")
         remote_tar_fname = "/tmp/"+rand_fname(".tar")
