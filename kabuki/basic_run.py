@@ -6,6 +6,7 @@ import json
 import subprocess
 import base64
 import os
+import signal
 
 yaml_path = os.path.expanduser("~/.local/var/")
 
@@ -73,7 +74,7 @@ def main():
             script_contents += "RETVAL=$!\n"
             script_contents += "echo $RETVAL\n"
             script_contents += "wait $RETVAL\n"
-            script_contents += "RETCODE=$!\n"
+            script_contents += "RETCODE=$?\n"
             script_contents += f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
             script_contents += "exit $RETCODE"
             script_file.write(script_contents.encode("utf-8"))
@@ -109,10 +110,13 @@ def main():
             line = proc.stdout.readline()
 
         proc.wait()
+
         returncode = proc.returncode
+        print(returncode)
     except KeyboardInterrupt:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         print("killing job on remote (KeyboardInterrupt):")
-        run_command = make_ssh_command(machine_config, f"kill {pid}")
+        run_command = make_ssh_command(machine_config, f"kill -- -{pid}")
         print(run_command,flush=True)
         main_cmd = subprocess.run(run_command)
         proc.wait()
