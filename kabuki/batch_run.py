@@ -145,20 +145,20 @@ def main():
                         message = "finished" if proc[1].returncode == 0 else "failed"
                         finished_num = proc[0]
                         job_name = f"{save_filename}.{finished_num+1}"
-                        print(f"{message}: {job_name}; {lines[finished_num].strip()}")
+                        print(f"{message}: {job_name}; {lines[finished_num].strip()}",flush=True)
                         proc = procs[i] = None
                     if proc is None and line_num < len(lines):
                         export_prefix = f"export CUDA_VISIBLE_DEVICES={gpu_choice} &&" if not args.reserve and not args.no_gpu_required else ""
                         command = f"{export_prefix} {lines[line_num].strip()}"
                         job_name = f"{save_filename}.{line_num+1}"
                         if os.path.exists(f"./job_results/{job_name}"):
-                            print("skipping", command)
+                            print("skipping", command,flush=True)
                         else:
                             job_cmd = make_basic_run_command(mac, job_name, command, gpu_choice, args)
                             if args.verbose or args.dry_run:
                                 print(" ".join(job_cmd))
                             if not args.dry_run:
-                                print(f"started: {job_name};  {command}")
+                                print(f"started: {job_name};  {command}",flush=True)
                                 stdout_file = open(f"./job_results/{job_name}.out",'a',buffering=1)
                                 stderr_file = open(f"./job_results/{job_name}.err",'a',buffering=1)
                                 process = subprocess.Popen(job_cmd,stdout=stdout_file, stderr=stderr_file)#,creationflags=subprocess.DETACHED_PROCESS)
