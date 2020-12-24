@@ -70,11 +70,12 @@ def main():
         with tempfile.NamedTemporaryFile(dir=".",suffix=".sh") as script_file:
             script_name = os.path.basename(script_file.name)
             script_contents = f'{args.command} &\n'
-            script_contents += "disown\n"
-            script_contents += "echo $!\n"
-            script_contents += "wait\n"
+            script_contents += "RETVAL=$!\n"
+            script_contents += "echo $RETVAL\n"
+            script_contents += "wait $RETVAL\n"
+            script_contents += "RETCODE=$!\n"
             script_contents += f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
-            print("".join(script_contents))
+            script_contents += "exit $RETCODE"
             script_file.write(script_contents.encode("utf-8"))
             script_file.flush()
 
@@ -96,9 +97,12 @@ def main():
         interactive_command = f"{setup_data} && stdbuf -i0 -o0 -e0  bash -i {script_name}"
         run_command = make_ssh_command(machine_config, interactive_command)
         vprint(" ".join(run_command))
+        vprint("with script:")
+        vprint("".join(script_contents))
         proc = subprocess.Popen(run_command, stdout=subprocess.PIPE)
         line = proc.stdout.readline()
         pid = int(line.strip())
+        vprint("pid:",pid)
         line = proc.stdout.readline()
         while line:
             print(line)
@@ -112,7 +116,7 @@ def main():
         print(run_command,flush=True)
         main_cmd = subprocess.run(run_command)
         proc.wait()
-        print("finished transfering files",flush=True)
+        print("finished collecting files on remote",flush=True)
         returncode = 1
 
     with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
