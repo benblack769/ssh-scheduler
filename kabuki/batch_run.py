@@ -5,8 +5,10 @@ import yaml
 import json
 import subprocess
 import base64
+import re
 import sys
 import time
+import shlex
 import copy
 import os
 import signal
@@ -92,11 +94,31 @@ def get_process_limit(machine_limit, args):
         gpu_choices.append(gpu_choice)
     return gpu_choices
 
-def make_basic_run_command(machine, job_name, command, gpu_choice, args):
+def make_basic_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
     basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
-    cmd = basic_cmd + [command]
+    cmd = basic_cmd + [export_prefix+" "+command]
     return cmd
 
+def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
+    final_command = command
+    if "--copy-forward" not in command:
+        final_command += f" --copy-forward {' '.join(args.copy_forward)} "
+    if "--copy-backwards" not in command:
+        final_command += f" --copy-backwards {' '.join(args.copy_backwards)} "
+    if "--job-name" not in command:
+        final_command += f" --job-name {job_name} "
+    if args.verbose:
+        final_command += f" --verbose "
+    final_command += f" --machine {machine} "
+
+    split_cmd = shlex.split(final_command)[1:]
+    parse_results = basic_run.parse_args(split_cmd)
+    # final_command = final_command.replace(parse_results.command, f" {export_prefix} {parse_results.command} ")
+    # catted_cmd =  f" {export_prefix} {parse_results.command} "
+    resulting_command = make_basic_run_command(machine, parse_results.job_name, export_prefix, parse_results.command, gpu_choice, parse_results)
+
+    return resulting_command, parse_results.job_name
+#
 def main():
     parser = argparse.ArgumentParser(
         description='Run a batched command',
@@ -114,6 +136,7 @@ def main():
     parser.add_argument('--gpu-utilization', type=float, default=0.75, help='gpu utilization consumed')
     parser.add_argument('--verbose', action="store_true", help='print out debug information')
     parser.add_argument('--dry-run', action="store_true", help='just print out first round of commands')
+    parser.add_argument('--kabuki-commands', action="store_true", help='Whether the batch file should be interpreted as kabuki commands instead of bash commands')
     parser.add_argument('filename', help="a file where each line contains a command")
 
     args = parser.parse_args()
@@ -127,9 +150,9 @@ def main():
     print("machine gpu choices:",machine_gpu_choices)
     machine_procs = [[None for i in range(limit)] for limit in machine_proc_limits]
     save_filename = args.filename.replace("/","_")
+    job_names = [f"{save_filename}.{line_num+1}" for line_num in range(len(lines))]
     for line_num in range(len(lines)):
-        job_name = f"{save_filename}.{line_num+1}"
-        if os.path.exists(f"./job_results/{job_name}"):
+        if os.path.exists(f"./job_results/{job_names[line_num]}"):
             print(f"WARNING: job results already exists for line {line_num+1}, skipping evaluation: delete if you wish to rerun")
 
     os.makedirs("./job_results/",exist_ok=True)
@@ -144,19 +167,26 @@ def main():
                     if proc is not None and proc[1].poll() is not None:
                         message = "finished" if proc[1].returncode == 0 else "failed"
                         finished_num = proc[0]
-                        job_name = f"{save_filename}.{finished_num+1}"
+                        job_name = job_names[finished_num]
                         print(f"{message}: {job_name}; {lines[finished_num].strip()}",flush=True)
                         proc = procs[i] = None
                     if proc is None and line_num < len(lines):
                         export_prefix = f"export CUDA_VISIBLE_DEVICES={gpu_choice} &&" if not args.reserve and not args.no_gpu_required else ""
-                        command = f"{export_prefix} {lines[line_num].strip()}"
-                        job_name = f"{save_filename}.{line_num+1}"
+                        command = lines[line_num].strip()
+                        job_name = job_names[line_num]
+
+                        if args.kabuki_commands:
+                            job_cmd, new_job_name = make_kabuki_run_command(mac, job_name, export_prefix, command, gpu_choice, args)
+                            job_name = job_names[line_num] = new_job_name
+                        else:
+                            job_cmd = make_basic_run_command(mac, job_name, export_prefix, command, gpu_choice, args)
+                        print(job_name)
                         if os.path.exists(f"./job_results/{job_name}"):
                             print("skipping", command,flush=True)
                         else:
-                            job_cmd = make_basic_run_command(mac, job_name, command, gpu_choice, args)
                             if args.verbose or args.dry_run:
-                                print(" ".join(job_cmd))
+                                fancy_job_command = ' '.join(job_cmd)
+                                print(fancy_job_command)
                             if not args.dry_run:
                                 print(f"started: {job_name};  {command}",flush=True)
                                 stdout_file = open(f"./job_results/{job_name}.out",'a',buffering=1)

@@ -57,6 +57,15 @@ echo "another job" && echo "a combined job (bash syntax applies)"
 bash examples/local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forward"
 ```
 
+If you want, you can specify the forward and backward copies at the job level instead of globally. You can do that by running partially complete `execute_remote` commands like so:
+
+```
+execute_remote --copy-forward example1 test.py --copy-backwards example1 --job-name example1 'python test.py example1'
+execute_remote --copy-forward example2 test.py --copy-backwards example2 --job-name example2 'python test.py example2'
+```
+
+This will copy forward example1 to the remote machine for the example1 job and example2 for the example2 job. Machines and GPUs will be allocated automatically, so any specification of a machine will be ignored, and specifying a GPU may screw things up.
+
 ### Step 3: Figure out hardware requirements
 
 There are three types of hardware requirements: reservations, memory and compute. All three are supported at both CPU and GPU levels.
@@ -105,7 +114,7 @@ execute_batch example/batch_script.sh --machines example/machine.yaml \
 
 **Reserve entire machine**
 
-When entire machine is reserved or no GPU is requested, CUDA_VISIBLE_DEVICES will not be set. 
+When entire machine is reserved or no GPU is requested, CUDA_VISIBLE_DEVICES will not be set.
 
 ```
 execute_batch example/batch_script.sh --machines example/machine.yaml \

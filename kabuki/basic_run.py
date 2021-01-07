@@ -6,6 +6,7 @@ import json
 import subprocess
 import base64
 import os
+import sys
 import signal
 
 yaml_path = os.path.expanduser("~/.local/var/")
@@ -39,9 +40,7 @@ def make_ssh_command(machine_config, command, open_terminal=False):
     final_command = ssh_command.split(" ") + [command]
     return final_command
 
-
-
-def main():
+def parse_args(args_list):
     parser = argparse.ArgumentParser(description='Run a simple command')
     parser.add_argument('--copy-forward', nargs='*', default=[], help='Folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
@@ -50,7 +49,11 @@ def main():
     parser.add_argument('--verbose', action="store_true", help='print debugging information to stderr')
     parser.add_argument('command')
 
-    args = parser.parse_args()
+    return parser.parse_args(args_list)
+
+def main():
+    args = parse_args(sys.argv[1:])
+    print(args.command)
 
     machine_config = load_data_from_yaml(args.machine)
 
@@ -114,7 +117,6 @@ def main():
         returncode = proc.returncode
         print(returncode)
     except KeyboardInterrupt:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         print("killing job on remote (KeyboardInterrupt):")
         run_command = make_ssh_command(machine_config, f"kill -- -{pid}")
         print(run_command,flush=True)
@@ -122,8 +124,6 @@ def main():
         proc.wait()
         print("finished collecting files on remote",flush=True)
         returncode = 1
-
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
         fname = tarfile.name
