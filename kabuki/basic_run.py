@@ -123,6 +123,8 @@ def main():
         print("finished collecting files on remote",flush=True)
         returncode = 1
 
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
         fname = tarfile.name
 

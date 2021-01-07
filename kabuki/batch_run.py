@@ -172,6 +172,7 @@ def main():
             if waiting_only:
                 time.sleep(1)
     except BaseException as be:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         print("interrupting tasks")
         for procs in machine_procs:
             for proc in procs:
