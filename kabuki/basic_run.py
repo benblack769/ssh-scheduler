@@ -75,13 +75,14 @@ def main():
             script_name = os.path.basename(script_file.name)
             script_contents = f'{args.command} &\n'
             script_contents += "RETVAL=$!\n"
-            script_contents += "echo $RETVAL\n"
+            script_contents += "echo $!\n"
             script_contents += "wait $RETVAL\n"
             script_contents += "RETCODE=$?\n"
-            script_contents += f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
             script_contents += "exit $RETCODE"
             script_file.write(script_contents.encode("utf-8"))
             script_file.flush()
+
+            gather_results_command = f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
 
             fname = tarfile.name
 
@@ -117,6 +118,7 @@ def main():
         returncode = proc.returncode
         print(returncode)
     except KeyboardInterrupt:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         print("killing job on remote (KeyboardInterrupt):")
         run_command = make_ssh_command(machine_config, f"kill -- -{pid}")
         print(run_command,flush=True)
@@ -127,6 +129,10 @@ def main():
 
     with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
         fname = tarfile.name
+        vprint("processing results on remote:")
+        gather_results_command = make_ssh_command(machine_config, gather_results_command)
+        vprint(" ".join(gather_results_command))
+        subprocess.run(gather_results_command)
 
         vprint("transfering files from remote:")
         copy_backward_cmd = make_scp_command_backward(fname, remote_tar_fname_back, machine_config)
