@@ -1,5 +1,3 @@
-# This library is agressively beta and will recieve many further refinements, but currently is mostly functional for our internal use
-
 # Kabuki
 
 <p align="center">
