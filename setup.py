@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="kabuki",
     version="0.0.1",
-    author="PettingZoo Team",
-    author_email="justinkterry@gmail.com",
+    author="Benjamin Black",
+    author_email="benblack769@gmail.com",
     description="Automated minimal-setup ssh based job scheduling designed for ML",
     long_description=long_description,
     long_description_content_type="text/markdown",
