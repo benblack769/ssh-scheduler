@@ -11,7 +11,7 @@ Intended use case is for a researcher running many experiments on many different
 ## Install
 
 ```
-pip install git+https://github.com/weepingwillowben/kabuki.git
+pip install git+https://github.com/benblack769/kabuki.git
 ```
 
 ## Features

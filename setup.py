@@ -11,7 +11,7 @@ setuptools.setup(
     description="Automated minimal-setup ssh based job scheduling designed for ML",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/weepingwillowben/kabuki",
+    url="https://github.com/benblack769/kabuki",
     keywords=["Machine Learning", "Job Scheduling"],
     packages=setuptools.find_packages(),
     install_requires=[],
