@@ -22,13 +22,17 @@ def parse_cpu_usage(usage_str):
     '''
     cpu, mem, swap = usage_str.strip().split("\n")[2:5]
     cpu_usage = float(cpu.split()[1])/100
-    mem_entry = swap.split(".")[1].strip().split()[0]
+    mem_entry = swap.split("used.")[1].strip().split()[0]
     if "+" in mem_entry:
-        mem_entry = int(mem_entry.split("+")[0])*10
+        mem_entry = float(mem_entry.split("+")[0])*10
     else:
-        mem_entry = int(mem_entry)#.split("+")[0]*10
-    mem_free = mem_entry//1024
-    print(mem_free)
+        mem_entry = float(mem_entry)#.split("+")[0]*10
+    if mem.split()[0] == "KiB":
+        mem_free = mem_entry//1024
+    elif mem.split()[0] == "MiB":
+        mem_free = mem_entry
+    else:
+        raise RuntimeError("top command returned a weirdly formatted output")
     return {"cpu_usage": cpu_usage, "mem_free": mem_free}
 
 def get_cpu_count():
