@@ -192,6 +192,7 @@ def main():
                                 stdout_file = open(f"./job_results/{job_name}.out",'a',buffering=1)
                                 stderr_file = open(f"./job_results/{job_name}.err",'a',buffering=1)
                                 process = subprocess.Popen(job_cmd,stdout=stdout_file, stderr=stderr_file)#,creationflags=subprocess.DETACHED_PROCESS)
+                                time.sleep(0.2)
                                 proc = procs[i] = (line_num, process)
                         line_num += 1
                         all_done = False
