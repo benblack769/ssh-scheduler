@@ -51,15 +51,18 @@ def parse_args(args_list):
 
     return parser.parse_args(args_list)
 
+def printe(*args):
+    print(*args, file=sys.stderr)
+
 def main():
     args = parse_args(sys.argv[1:])
-    print(args.command)
+    printe(args.command)
 
     machine_config = load_data_from_yaml(args.machine)
 
     def vprint(*fargs):
         if args.verbose:
-            print(*fargs)
+            printe(*fargs)
 
     job_name = rand_fname() if args.job_name == "__random__" else args.job_name
     job_result_folder = os.path.expanduser("./job_results/")+job_name
@@ -110,21 +113,22 @@ def main():
         vprint("pid:",pid)
         line = proc.stdout.readline()
         while line:
-            print(line)
+            sys.stdout.write(line.decode('utf-8'))
+            sys.stdout.flush()
             line = proc.stdout.readline()
 
         proc.wait()
 
         returncode = proc.returncode
-        print(returncode)
+        printe(returncode)
     except KeyboardInterrupt:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        print("killing job on remote (KeyboardInterrupt):")
+        printe("killing job on remote (KeyboardInterrupt):")
         run_command = make_ssh_command(machine_config, f"kill -- -{pid}")
-        print(run_command,flush=True)
+        printe(run_command,flush=True)
         main_cmd = subprocess.run(run_command)
         proc.wait()
-        print("finished collecting files on remote",flush=True)
+        printe("finished collecting files on remote",flush=True)
         returncode = 1
 
     with tempfile.NamedTemporaryFile(suffix=".tar") as tarfile:
