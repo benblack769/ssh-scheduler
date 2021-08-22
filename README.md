@@ -24,6 +24,32 @@ pip install git+https://github.com/benblack769/kabuki.git
 * **Non exclusive use of machines:** Free resources on machines are calculated at batch submission. The system will only use free resources on remote machines (calculated at batch submission time), meaning that other jobs //users can be running on those systems without resource overload issues.
 * **Low latency job submission:** Jobs are fast to start, a whole batch can be started and finished in 5-10 seconds, under optimal conditions.
 
+## Tools
+
+Kabuki has several powerful command line tools to execute remote tasks.
+
+* execute_remote: a CLI for executing a command on a remote machine
+* execute_batch: Distribute many commands across many remote machines, with specified resource constraints. Queries remote machines for resource capacity. Full support for Nvidia GPU resource distribution.
+* execute_to: a CLI for executing a single command on many remote machines (typically for installation or other system management)
+* combine_folders: a CLI for combining a set of folders data. Meant to collate output of batch of commands.
+
+## Modules
+
+* execute remote workflow
+* query remote machine info
+* machine virtual resources handler (performs allocation validation/scoring as well as allocation and deallocation resource limits)
+    * __init__(avaliable_resources)
+    * score(allocation) # returns -inf if not enough resoures
+    * allocate(allocation) # throws error if not enough resources, updates object state
+* machine runner: sends signals on start and stop of queued job. Puts time in-between queue and start to manage load on remote server.
+    * __init__(machine_info)
+    * queue_up(command, forward_loc, backward_loc, job_name, etc)
+    * register_started(callback(job_name))
+    * register_ended(callback(job_name))
+* combine_folders:
+    * Identical files from different folders are collapsed to the same files, different paths are all included, same path with different filename results in error
+    * useage: combine_folders dest src1 src2 ...
+
 ## Example
 
 Full example located in `example` folder. Need to change `example/machine.yaml` to get it to work.
