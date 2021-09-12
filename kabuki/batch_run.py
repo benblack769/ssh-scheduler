@@ -27,6 +27,7 @@ def run_all(commands):
         out, err = proc.communicate()
         print(err,file=sys.stderr)
         if proc.returncode != 0:
+            print(out,file=sys.stderr)
             out = None
         else:
             out = out.decode("utf-8")
@@ -38,7 +39,7 @@ def find_all_machine_info(machines):
     commands = [basic_run.make_ssh_command(mac, cmd) for mac in machines]
     outputs = run_all(commands)
     if not all(outputs):
-        fail_machines = [mach for out,mach in zip(outputs, machines) if out is None]
+        fail_machines = [(mach, " ".join(cmd)) for out,mach,cmd in zip(outputs, machines, commands) if out is None]
         raise RuntimeError("could not connect to machines: "+json.dumps(fail_machines))
     parsed_outs = [parse_full_output(out) for out in outputs]
     return parsed_outs
@@ -118,14 +119,14 @@ def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choic
     resulting_command = make_basic_run_command(machine, parse_results.job_name, export_prefix, parse_results.command, gpu_choice, parse_results)
 
     return resulting_command, parse_results.job_name
-#
+
 def main():
     parser = argparse.ArgumentParser(
         description='Run a batched command',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('--copy-forward', nargs='*', default=["./"], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
-    parser.add_argument('--copy-backwards', nargs='*', default=["./"], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-forward', nargs='*', default=[], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
     parser.add_argument('--machines', nargs='*', help='machine id', required=True)
     parser.add_argument('--num-cpus', type=int, default=1, help='cpus to reserve for the job')
     parser.add_argument('--memory-required', type=int, default=7000, help='memory to reserve for the job')
