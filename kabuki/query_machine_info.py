@@ -79,7 +79,7 @@ def parse_gpu_info(gpu_info_str):
         return {"gpus": gpu_infos}
 
 def get_full_command():
-    return f"{get_cpu_usage()} && printf \"<<>>\" && {get_cpu_count()} && printf \"<<>>\" &&{get_gpu_info()}"
+    return f"{get_cpu_usage()} && printf \"<<>>\" && {get_cpu_count()} && printf \"<<>>\" && {get_gpu_info()} || echo"
 
 def parse_full_output(out_str):
     beg = out_str.find("<<>>")
