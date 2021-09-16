@@ -96,14 +96,14 @@ def get_process_limit(machine_limit, args):
     return gpu_choices
 
 def make_basic_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
-    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forward {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
+    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forwards {' '.join(args.copy_forward)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
     cmd = basic_cmd + [export_prefix+" "+command]
     return cmd
 
 def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
     final_command = command
-    if "--copy-forward" not in command:
-        final_command += f" --copy-forward {' '.join(args.copy_forward)} "
+    if "--copy-forwards" not in command:
+        final_command += f" --copy-forwards {' '.join(args.copy_forward)} "
     if "--copy-backwards" not in command:
         final_command += f" --copy-backwards {' '.join(args.copy_backwards)} "
     if "--job-name" not in command:
@@ -125,7 +125,7 @@ def main():
         description='Run a batched command',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('--copy-forward', nargs='*', default=[], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-forwards', nargs='*', default=[], help='Files and folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
     parser.add_argument('--machines', nargs='*', help='machine id', required=True)
     parser.add_argument('--num-cpus', type=int, default=1, help='cpus to reserve for the job')

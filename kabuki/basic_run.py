@@ -42,7 +42,7 @@ def make_ssh_command(machine_config, command, open_terminal=False):
 
 def parse_args(args_list):
     parser = argparse.ArgumentParser(description='Run a simple command')
-    parser.add_argument('--copy-forward', nargs='*', default=[], help='Folders to copy when running the command. Defaults to everything in the current working directory')
+    parser.add_argument('--copy-forwards', nargs='*', default=[], help='Folders to copy when running the command. Defaults to everything in the current working directory')
     parser.add_argument('--copy-backwards', nargs='*', default=[], help='Files and folders to copy back from the worker running the command. Defaults to everything in the current working directory')
     parser.add_argument('--machine', help='machine id', required=True)
     parser.add_argument('--job-name', default="__random__", help='job name')
