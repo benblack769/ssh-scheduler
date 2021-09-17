@@ -90,7 +90,7 @@ def main():
             fname = tarfile.name
 
             vprint("preparing files for transfer:")
-            tararg = f"tar --exclude job_results --exclude .git -cmf {fname} {' '.join(args.copy_forward)} {script_name}"
+            tararg = f"tar --exclude job_results --exclude .git -cmf {fname} {' '.join(args.copy_forwards)} {script_name}"
             vprint(tararg)
             subprocess.run(tararg,shell=True)
 
