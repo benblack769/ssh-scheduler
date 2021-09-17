@@ -86,6 +86,7 @@ def main():
         raise RuntimeError(f"results for job '{job_name}' already exist, move or remove files before continuing")
 
     run_folder = "job_data/"+job_name
+    local_data_folder = "job_results/"+job_name
     pid_name = "."+rand_fname("_pid.txt")
     stdout_separator = rand_fname()
     script_name = "tmp/"+rand_fname(".sh")
@@ -95,7 +96,7 @@ def main():
     script_contents = rf'{args.command} &\n'
     script_contents += r"RETVAL=$!\n"
     script_contents += rf"echo $RETVAL > {pid_name}\n"
-    script_contents += rf"echo  started command $RETVAL ... \n"
+    script_contents += rf"echo  started command $RETVAL ...  >&2 \n"
     script_contents += r"wait $RETVAL\n"
     script_contents += r"RETCODE=$?\n"
     script_contents += r"exit $RETCODE\n"
@@ -123,7 +124,7 @@ def main():
     get_stdout_txt = f"sed -n '/{stdout_separator}/q;p'"
     divert_all_data = f"tee {local_all_out_file}"
     remove_stdout = f"sed -n '/{stdout_separator}/,$p' {local_all_out_file} | tail -n +2 | tar xm "
-    unpack_tar_out = f"( mkdir -p {run_folder} && cd {run_folder} && {remove_stdout} ) "
+    unpack_tar_out = f"( mkdir -p {local_data_folder} && cd {local_data_folder} && {remove_stdout} ) "
     post_process_output = f"{divert_all_data} | {get_stdout_txt}"
 
     cleanup_local_files = f"rm -f {local_all_out_file} {local_script_file}"
