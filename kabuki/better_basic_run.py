@@ -9,6 +9,7 @@ import os
 import sys
 import signal
 import shlex
+import time
 
 def parse_args(args_list):
     parser = argparse.ArgumentParser(description='Run a simple command')
@@ -48,6 +49,28 @@ def rand_fname(suffix=""):
 def printe(*args):
     print(*args, file=sys.stderr)
 
+class CleanupShellProcess:
+    def __init__(self, command, *cleanups):
+        self.proc = subprocess.Popen(command, shell=True)
+        self.cleanups = cleanups
+
+    def close(self):
+        for cleanup in self.cleanups:
+            subprocess.Popen(cleanup, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def wait(self):
+        self.proc.wait()
+
+    def __enter__(self):
+        return self.proc
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
+
 def main():
     args = parse_args(sys.argv[1:])
 
@@ -71,13 +94,14 @@ def main():
 
     script_contents = rf'{args.command} &\n'
     script_contents += r"RETVAL=$!\n"
-    script_contents += rf"echo $! > {pid_name}\n"
+    script_contents += rf"echo $RETVAL > {pid_name}\n"
+    script_contents += rf"echo  started command $RETVAL ... \n"
     script_contents += r"wait $RETVAL\n"
     script_contents += r"RETCODE=$?\n"
     script_contents += r"exit $RETCODE\n"
 
 
-    create_local_script = f"echo '{script_contents}' > {local_script_file}"
+    create_local_script = f"printf '{script_contents}' > {local_script_file}"
 
     # gather_results_command = f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
     q = '"'
@@ -100,14 +124,19 @@ def main():
     divert_all_data = f"tee {local_all_out_file}"
     remove_stdout = f"sed -n '/{stdout_separator}/,$p' {local_all_out_file} | tail -n +2 | tar xm "
     unpack_tar_out = f"( mkdir -p {run_folder} && cd {run_folder} && {remove_stdout} ) "
-    post_process_output = f"{divert_all_data} | {get_stdout_txt} ; ( {ssh_remote_cleanup} & ) ; {unpack_tar_out}"
-    cleanup_local_files = f"rm -f {local_all_out_file} {local_script_file}"
+    post_process_output = f"{divert_all_data} | {get_stdout_txt}"
 
-    full_command = f"{create_local_script} && {tararg} | {make_ssh_command(machine_config, full_remote_command)} | {post_process_output} ; {cleanup_local_files}"
+    cleanup_local_files = f"rm -f {local_all_out_file} {local_script_file}"
+    cleanup_remote_safe = f"{ssh_remote_cleanup}"
+    cleanup_local_safe = f"{unpack_tar_out}; {cleanup_local_files}"
+
+    full_command = f"{create_local_script} && {tararg} | {make_ssh_command(machine_config, full_remote_command)} | {post_process_output}"
 
     vprint(full_command)
 
-    subprocess.run(full_command, shell=True)
+    safeproc = CleanupShellProcess(full_command, cleanup_remote_safe, cleanup_local_safe)
+    return safeproc
 
 if __name__ == "__main__":
-    main()
+    val = main()
+    val.wait()
