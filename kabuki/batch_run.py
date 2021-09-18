@@ -12,7 +12,7 @@ import shlex
 import copy
 import os
 import signal
-from kabuki import basic_run
+from kabuki import better_basic_run
 from kabuki.query_machine_info import get_full_command, parse_full_output
 from .machine_cost_model import machine_cost, is_over_limit, get_process_gpu_limit, get_best_gpu, get_best_machine, init_machine_limit, add_to_machine_state, remove_from_machine_state
 from .better_basic_run import generate_command
@@ -24,7 +24,7 @@ my_folder = os.path.dirname(os.path.realpath(__file__))
 def run_all(commands):
     procs = []
     for command in commands:
-        proc = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen(command,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         procs.append(proc)
     outputs = []
     for proc in procs:
@@ -41,7 +41,7 @@ def run_all(commands):
 
 def find_all_machine_info(machines):
     cmd = get_full_command()
-    commands = [basic_run.make_ssh_command(mac, cmd) for mac in machines]
+    commands = [better_basic_run.make_ssh_command(mac, cmd) for mac in machines]
     outputs = run_all(commands)
     if not all(outputs):
         fail_machines = [(mach, " ".join(cmd)) for out,mach,cmd in zip(outputs, machines, commands) if out is None]
@@ -82,7 +82,7 @@ def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choic
     final_command += f" --machine {machine} "
 
     split_cmd = shlex.split(final_command)[1:]
-    parse_results = basic_run.parse_args(split_cmd)
+    parse_results = better_basic_run.parse_args(split_cmd)
     # final_command = final_command.replace(parse_results.command, f" {export_prefix} {parse_results.command} ")
     # catted_cmd =  f" {export_prefix} {parse_results.command} "
     run_proc = make_basic_run_command(machine, parse_results.job_name, export_prefix, parse_results.command, gpu_choice, parse_results)
@@ -113,7 +113,7 @@ def main():
     args = parser.parse_args()
 
     lines = open(args.filename).readlines()
-    machine_configs = [basic_run.load_data_from_yaml(mac) for mac in args.machines]
+    machine_configs = [better_basic_run.load_data_from_yaml(mac) for mac in args.machines]
     machine_infos = find_all_machine_info(machine_configs)
     machine_gpu_choices = [get_process_gpu_limit(info, args) for info in machine_infos]
     machine_proc_limits = [len(c) for c in machine_gpu_choices]
