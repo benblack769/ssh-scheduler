@@ -10,6 +10,8 @@ import sys
 import signal
 import shlex
 import time
+import random
+
 
 def parse_args(args_list):
     parser = argparse.ArgumentParser(description='Run a simple command')
@@ -22,9 +24,9 @@ def parse_args(args_list):
 
     return parser.parse_args(args_list)
 
-yaml_path = os.path.expanduser("~/.local/var/")
 
 def load_data_from_yaml(computer_override):
+    yaml_path = os.path.expanduser("~/.local/var/")
     global_path = os.path.join(yaml_path,"{}".format(computer_override))
     if os.path.exists(computer_override):
         machine_path = computer_override
@@ -39,19 +41,23 @@ def load_data_from_yaml(computer_override):
     machine_data = yaml.safe_load(open(machine_path))
     return machine_data
 
+
 def make_ssh_command(machine_config, command):
     ssh_command = f"ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=5 -p {machine_config['port']} -i {machine_config['ssh_key_path']} {machine_config['username']}@{machine_config['ip']} '{command}'"
     return ssh_command
 
+
 def rand_fname(suffix=""):
     return base64.b16encode(os.urandom(12)).decode("utf-8") + suffix
+
 
 def printe(*args):
     print(*args, file=sys.stderr)
 
+
 class CleanupShellProcess:
-    def __init__(self, command, *cleanups):
-        self.proc = subprocess.Popen(command, shell=True)
+    def __init__(self, command, cleanups=[], **kwargs):
+        self.proc = subprocess.Popen(command, shell=True, **kwargs)
         self.cleanups = cleanups
 
     def close(self):
@@ -60,6 +66,10 @@ class CleanupShellProcess:
 
     def wait(self):
         self.proc.wait()
+
+    def communicate(self):
+        out, err = self.proc.communicate()
+        return out, err
 
     def __enter__(self):
         return self.proc
@@ -71,16 +81,22 @@ class CleanupShellProcess:
         self.close()
 
 
-def main():
-    args = parse_args(sys.argv[1:])
+def generate_command(
+    copy_forwards,
+    copy_backwards,
+    machine_config,
+    job_name,
+    verbose,
+    command,
+    stdout=None,
+    stderr=None
+):
 
     def vprint(*fargs):
-        if True or args.verbose:
+        if verbose:
             printe(*fargs)
 
-    machine_config = load_data_from_yaml(args.machine)
-
-    job_name = rand_fname() if args.job_name == "__random__" else args.job_name
+    job_name = rand_fname() if job_name == "__random__" else job_name
     job_result_folder = os.path.expanduser("./job_results/")+job_name
     if os.path.exists(job_result_folder):
         raise RuntimeError(f"results for job '{job_name}' already exist, move or remove files before continuing")
@@ -93,7 +109,7 @@ def main():
     local_script_file = "/"+script_name
     local_all_out_file = "/tmp/"+rand_fname()
 
-    script_contents = rf'{args.command} &\n'
+    script_contents = rf'{command} &\n'
     script_contents += r"RETVAL=$!\n"
     script_contents += rf"echo $RETVAL > {pid_name}\n"
     script_contents += rf"echo  started command $RETVAL ...  >&2 \n"
@@ -104,14 +120,14 @@ def main():
 
     create_local_script = f"printf '{script_contents}' > {local_script_file}"
 
-    # gather_results_command = f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(args.copy_backwards)}\n"
+    # gather_results_command = f"cd && cd {run_folder} && tar cfm {remote_tar_fname_back} {' '.join(.copy_backwards)}\n"
     q = '"'
     vprint(f"Script contents:\n{eval(q+script_contents+q)}")
-    tararg = f"tar --exclude job_results --exclude .git -cmf - {' '.join(args.copy_forwards)} {local_script_file}"
+    tararg = f"tar --exclude job_results --exclude .git -cmf - {' '.join(copy_forwards)} {local_script_file}"
     setup_data = f"(mkdir -p {run_folder} && cd {run_folder} && tar -x ) "
-    # quoted_command = shlex.quote(args.command)
+    # quoted_command = shlex.quote(.command)
     # vprint(quoted_command)
-    return_results_command = f"tar -cmf - {' '.join(args.copy_backwards)}"
+    return_results_command = f"tar -cmf - {' '.join(copy_backwards)}"
     interactive_command = f"stdbuf -i0 -o0 -e0  bash -i {script_name}"
     full_remote_command = f"{setup_data} && cd {run_folder} && {interactive_command} ; echo {stdout_separator} ; {return_results_command}"
 
@@ -128,16 +144,32 @@ def main():
     post_process_output = f"{divert_all_data} | {get_stdout_txt}"
 
     cleanup_local_files = f"rm -f {local_all_out_file} {local_script_file}"
-    cleanup_remote_safe = f"{ssh_remote_cleanup}"
+    cleanup_remote_delay = f"sleep {random.random()*2}" # keeps number of ssh connections at once to a reasonable number
+    cleanup_remote_safe = f"{cleanup_remote_delay} ; {ssh_remote_cleanup}"
     cleanup_local_safe = f"{unpack_tar_out}; {cleanup_local_files}"
 
     full_command = f"{create_local_script} && {tararg} | {make_ssh_command(machine_config, full_remote_command)} | {post_process_output}"
 
     vprint(full_command)
 
-    safeproc = CleanupShellProcess(full_command, cleanup_remote_safe, cleanup_local_safe)
+    safeproc = CleanupShellProcess(full_command, cleanups=[cleanup_remote_safe, cleanup_local_safe], stdout=stdout, stderr=stderr)
     return safeproc
 
+
+def main():
+    args = parse_args(sys.argv[1:])
+
+    machine_config = load_data_from_yaml(args.machine)
+    proc = generate_command(
+        args.copy_forwards,
+        args.copy_backwards,
+        machine_config,
+        args.job_name,
+        args.verbose,
+        args.command
+    )
+    proc.wait()
+
+
 if __name__ == "__main__":
-    val = main()
-    val.wait()
+    main()
