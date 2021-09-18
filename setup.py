@@ -23,6 +23,6 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    scripts=['bin/execute_batch', 'bin/execute_remote'],
+    scripts=['bin/execute_batch', 'bin/execute_remote', 'bin/execute_on'],
     include_package_data=True,
 )
