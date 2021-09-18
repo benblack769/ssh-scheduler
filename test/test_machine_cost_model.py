@@ -1,6 +1,6 @@
 import copy
 from kabuki.machine_cost_model import init_machine_limit, add_to_machine_state, remove_from_machine_state
-from kabuki.machine_cost_model import machine_cost
+from kabuki.machine_cost_model import machine_cost, get_best_gpu, get_process_gpu_limit, is_over_limit
 
 class ExampleArgs:
     def __init__(self):
@@ -8,7 +8,7 @@ class ExampleArgs:
         self.gpu_memory_required = 1000
         self.gpu_utilization = 0.3
         self.no_reserve_gpu = True
-        self.num_cpus = 8
+        self.num_cpus = 4
         self.memory_required = 2000
         self.reserve = False
 
@@ -19,6 +19,9 @@ def test_invertible():
     machine_state = copy.deepcopy(example_machine_state)
     init_machine_limit(machine_state)
     orig_machine_state = copy.deepcopy(machine_state)
+    assert not is_over_limit(machine_cost(machine_args, machine_state))
+    assert get_best_gpu(machine_args, machine_state) == 0
+    assert len(get_process_gpu_limit(machine_state, machine_args)) == 6
 
     for j in range(4):
         for i in range(2):
@@ -30,6 +33,7 @@ def test_invertible():
             machine_state2 = add_to_machine_state(machine_state2, machine_args, i)
 
     assert machine_cost(machine_args, machine_state2) == machine_cost(machine_args, machine_state)
+    assert machine_cost(machine_args, orig_machine_state) != machine_cost(machine_args, machine_state)
     assert machine_state2 == machine_state
     assert machine_state2 != orig_machine_state
     for i in range(2):

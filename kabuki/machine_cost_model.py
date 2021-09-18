@@ -13,9 +13,14 @@ def gpu_cost(machine_config, gpu_state):
     return (
         (MAX_COST if gpu_state['free'] < 0 else 0) +
         (MAX_COST if gpu_state['reserved'] > 1 else 0) +
-        ((gpu_state['utilization'] * MAX_COST/MAX_UTILIZATION) ** 3)
+        MAX_COST * ((gpu_state['utilization']/MAX_UTILIZATION) ** 3)
     )
 
+
+def get_best_gpu(machine_config, machine_state):
+    gpu_costs = [gpu_cost(machine_config, gpu_conf) for gpu_conf in machine_state['gpus']]
+    argmin = min([(cost, i) for i, cost in enumerate(gpu_costs)])[1]
+    return argmin
 
 
 def machine_cost(machine_config, machine_state):
@@ -26,9 +31,10 @@ def machine_cost(machine_config, machine_state):
     return (
         (MAX_COST if machine_state['reserved'] > 1 else 0) +
         (MAX_COST if machine_state['mem_free'] < 0 else 0) +
-        ((machine_state['cpu_usage'] * MAX_COST/MAX_CPU_UTILIZATION) ** 3) +
+        MAX_COST * ((machine_state['cpu_usage']/MAX_CPU_UTILIZATION) ** 3) +
         min_gpu_cost
     )
+
 
 def add_to_gpu_state(old_gpu_state, machine_config):
     """return copy of gpu state with new job instance added"""
@@ -70,3 +76,26 @@ def init_machine_limit(machine_limit):
     machine_limit['reserved'] = 0
     for gpu in machine_limit['gpus']:
         gpu['reserved'] = 0
+
+
+def get_process_gpu_limit(machine_limit, machine_config):
+    '''
+    machine limit looks like this:
+    {"cpu_usage": 0.124, "mem_free": 30607, "cpu_count": 24, "gpus": [{"name": "GeForce RTX 2060", "mem": 5934, "free": 5933, "utilization": 0.0}, {"name": "GeForce RTX 2060", "mem": 5932, "free": 5931, "utilization": 0.0}]}
+    '''
+    machine_limit = copy.deepcopy(machine_limit)
+
+    if not machine_limit['gpus'] and not machine_config.no_gpu_required:
+        return []
+
+    init_machine_limit(machine_limit)
+
+    gpu_choices = []
+    while True:
+        best_gpu = get_best_gpu(machine_config, machine_limit)
+        machine_limit = add_to_machine_state(machine_limit, machine_config, best_gpu)
+        cost = machine_cost(machine_config, machine_limit)
+        if is_over_limit(cost):
+            break
+        gpu_choices.append(best_gpu)
+    return gpu_choices
