@@ -8,7 +8,7 @@ class ExampleArgs:
         self.gpu_memory_required = 1000
         self.gpu_utilization = 0.3
         self.no_reserve_gpu = True
-        self.num_cpus = 4
+        self.num_cpus = 2
         self.memory_required = 2000
         self.reserve = False
 

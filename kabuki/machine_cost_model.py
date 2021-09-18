@@ -16,11 +16,17 @@ def gpu_cost(machine_config, gpu_state):
         MAX_COST * ((gpu_state['utilization']/MAX_UTILIZATION) ** 3)
     )
 
+def argmin(costs):
+    return min((cost, i) for i, cost in enumerate(costs))[1]
+
 
 def get_best_gpu(machine_config, machine_state):
-    gpu_costs = [gpu_cost(machine_config, gpu_conf) for gpu_conf in machine_state['gpus']]
-    argmin = min([(cost, i) for i, cost in enumerate(gpu_costs)])[1]
-    return argmin
+    if 'gpus' not in machine_state:
+        return None
+    return argmin(gpu_cost(machine_config, gpu_conf) for gpu_conf in machine_state['gpus'])
+
+def get_best_machine(machine_states, machine_config):
+    return argmin(machine_cost(machine_config, machine_state) for machine_state in machine_states)
 
 
 def machine_cost(machine_config, machine_state):
@@ -71,7 +77,7 @@ def remove_from_machine_state(old_machine_state, gpu_idx):
 
 def init_machine_limit(machine_limit):
     """
-    machine limit comes from query_machine_info and looks like this:
+    machine limit comes from query_machine_info
     """
     machine_limit['reserved'] = 0
     for gpu in machine_limit['gpus']:

@@ -14,8 +14,12 @@ import os
 import signal
 from kabuki import basic_run
 from kabuki.query_machine_info import get_full_command, parse_full_output
+from .machine_cost_model import machine_cost, is_over_limit, get_process_gpu_limit, get_best_gpu, get_best_machine, init_machine_limit, add_to_machine_state, remove_from_machine_state
+from .better_basic_run import generate_command
+
 
 my_folder = os.path.dirname(os.path.realpath(__file__))
+
 
 def run_all(commands):
     procs = []
@@ -34,6 +38,7 @@ def run_all(commands):
         outputs.append(out)
     return outputs
 
+
 def find_all_machine_info(machines):
     cmd = get_full_command()
     commands = [basic_run.make_ssh_command(mac, cmd) for mac in machines]
@@ -42,68 +47,32 @@ def find_all_machine_info(machines):
         fail_machines = [(mach, " ".join(cmd)) for out,mach,cmd in zip(outputs, machines, commands) if out is None]
         raise RuntimeError("could not connect to machines: "+json.dumps(fail_machines))
     parsed_outs = [parse_full_output(out) for out in outputs]
+    for out in parsed_outs:
+        init_machine_limit(out)
     return parsed_outs
 
-def machine_limit_over(machine_limit):
-    return (machine_limit['reserved'] > 1 or
-        machine_limit['cpu_count'] < -2 or
-        machine_limit['mem_free'] < 0 or
-        any(gpu['free'] < 0 for gpu in machine_limit['gpus']) or
-        any(gpu['utilization'] > 1.2 for gpu in machine_limit['gpus']) or
-        any(gpu['reserved'] > 1 for gpu in machine_limit['gpus']))
-
-def subtract_process_req(machine_limit, args):
-    if args.reserve:
-        machine_limit['reserved'] += 1
-    machine_limit['cpu_count'] -= args.num_cpus
-    machine_limit['mem_free'] -= args.memory_required
-    gpu_idx = 0
-    if not args.no_gpu_required:
-        gpu_choice = None
-        for i,gpu in enumerate(machine_limit['gpus']):
-            if gpu_choice is None or gpu_choice['reserved'] or gpu_choice['free'] - args.gpu_memory_required <= 0 or gpu_choice['utilization'] > gpu['utilization']:
-                gpu_choice = gpu
-                gpu_idx = i
-        gpu_choice['free'] -= args.gpu_memory_required
-        gpu_choice['utilization'] += args.gpu_utilization
-        if not args.no_reserve_gpu:
-            gpu_choice['reserved'] += 1
-    return gpu_idx
-
-def init_machine_limit(machine_limit):
-    machine_limit['reserved'] = 0
-    machine_limit['cpu_count'] *= (1-machine_limit['cpu_usage'])
-    for gpu in machine_limit['gpus']:
-        gpu['reserved'] = 0
-
-def get_process_limit(machine_limit, args):
-    '''
-    machine limit looks like this:
-    {"cpu_usage": 0.124, "mem_free": 30607, "cpu_count": 24, "gpus": [{"name": "GeForce RTX 2060", "mem": 5934, "free": 5933, "utilization": 0.0}, {"name": "GeForce RTX 2060", "mem": 5932, "free": 5931, "utilization": 0.0}]}
-    '''
-    machine_limit = copy.deepcopy(machine_limit)
-
-    if not machine_limit['gpus'] and not args.no_gpu_required:
-        return []
-
-    init_machine_limit(machine_limit)
-    gpu_choices = []
-    while True:
-        gpu_choice = subtract_process_req(machine_limit, args)
-        if machine_limit_over(machine_limit):
-            break
-        gpu_choices.append(gpu_choice)
-    return gpu_choices
 
 def make_basic_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
-    basic_cmd = f"python -u {os.path.join(my_folder,'basic_run.py')} --copy-forwards {' '.join(args.copy_forwards)}  --copy-backwards {' '.join(args.copy_backwards)} --machine={machine} --job-name={job_name} {'--verbose' if args.verbose else ''}".split()
-    cmd = basic_cmd + [export_prefix+" "+command]
-    return cmd
+    stdout = open(f"./job_results/{job_name}.out",'a',buffering=1)
+    stderr = open(f"./job_results/{job_name}.err",'a',buffering=1)
+    proc = generate_command(
+        args.copy_forwards,
+        args.copy_backwards,
+        machine,
+        job_name,
+        args.verbose,
+        command,
+        stdout=stdout,
+        stderr=stderr
+    )
+    return proc
+
 
 def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
+    # add required args for parsing
     final_command = command
-    if "--copy-forwards" not in command:
-        final_command += f" --copy-forwards {' '.join(args.copy_forwards)} "
+    if "--copy-forward" not in command:
+        final_command += f" --copy-forward {' '.join(args.copy_forward)} "
     if "--copy-backwards" not in command:
         final_command += f" --copy-backwards {' '.join(args.copy_backwards)} "
     if "--job-name" not in command:
@@ -116,9 +85,10 @@ def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choic
     parse_results = basic_run.parse_args(split_cmd)
     # final_command = final_command.replace(parse_results.command, f" {export_prefix} {parse_results.command} ")
     # catted_cmd =  f" {export_prefix} {parse_results.command} "
-    resulting_command = make_basic_run_command(machine, parse_results.job_name, export_prefix, parse_results.command, gpu_choice, parse_results)
+    run_proc = make_basic_run_command(machine, parse_results.job_name, export_prefix, parse_results.command, gpu_choice, parse_results)
 
-    return resulting_command, parse_results.job_name
+    return run_proc, parse_results.job_name
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -145,7 +115,7 @@ def main():
     lines = open(args.filename).readlines()
     machine_configs = [basic_run.load_data_from_yaml(mac) for mac in args.machines]
     machine_infos = find_all_machine_info(machine_configs)
-    machine_gpu_choices = [get_process_limit(info, args) for info in machine_infos]
+    machine_gpu_choices = [get_process_gpu_limit(info, args) for info in machine_infos]
     machine_proc_limits = [len(c) for c in machine_gpu_choices]
     print("machine limits: ", {name:limit for name, limit in zip(args.machines,machine_proc_limits)})
     print("machine gpu choices:",machine_gpu_choices)
@@ -156,66 +126,75 @@ def main():
         if os.path.exists(f"./job_results/{job_names[line_num]}"):
             print(f"WARNING: job results already exists for line {line_num+1}, skipping evaluation: delete if you wish to rerun")
 
+    def poll_all_jobs():
+        not_finished_procs = []
+        for p_line_num, p_machine, p_gpu, proc in proc_list:
+            if args.dry_run or proc.poll() is not None:
+                message = "finished" if args.dry_run or proc.returncode == 0 else "failed"
+                job_name = job_names[p_line_num]
+                machine_infos[p_machine] = remove_from_machine_state(machine_infos[p_machine], p_gpu)
+                print(f"{message}: {job_name}; {lines[p_line_num].strip()}",flush=True)
+            else:
+                not_finished_procs.append((p_line_num, p_machine, p_gpu, proc))
+        proc_list[:] = not_finished_procs
+
+    proc_list = []
+    machine_config = args
     os.makedirs("./job_results/",exist_ok=True)
-    line_num = 0
-    try:
-        all_done = False
-        while not all_done:
-            all_done = True
-            waiting_only = True
-            for mac,gpu_choices,procs in zip(args.machines, machine_gpu_choices, machine_procs):
-                for i,(gpu_choice, proc) in enumerate(zip(gpu_choices, procs)):
-                    if proc is not None and proc[1].poll() is not None:
-                        message = "finished" if proc[1].returncode == 0 else "failed"
-                        finished_num = proc[0]
-                        job_name = job_names[finished_num]
-                        print(f"{message}: {job_name}; {lines[finished_num].strip()}",flush=True)
-                        proc = procs[i] = None
-                    if proc is None and line_num < len(lines):
-                        export_prefix = f"export CUDA_VISIBLE_DEVICES={gpu_choice} &&" if not args.reserve and not args.no_gpu_required else ""
-                        command = lines[line_num].strip()
-                        job_name = job_names[line_num]
+    for line_num in range(len(job_names)):
+        job_name = job_names[line_num]
+        if os.path.exists(f"./job_results/{job_name}"):
+            print("skipping", lines[line_num].strip(),flush=True)
+            continue
+        not_polled = True
+        while not_polled or is_over_limit(machine_cost(machine_config, machine_infos[best_machine_idx])):
+            if not not_polled:
+                if not args.dry_run:
+                    # ssh commands take at least a second to finish
+                    # so its a reasonable slow-query time
+                    time.sleep(1)
 
-                        if args.kabuki_commands:
-                            job_cmd, new_job_name = make_kabuki_run_command(mac, job_name, export_prefix, command, gpu_choice, args)
-                            job_name = job_names[line_num] = new_job_name
-                        else:
-                            job_cmd = make_basic_run_command(mac, job_name, export_prefix, command, gpu_choice, args)
-                        print(job_name)
-                        if os.path.exists(f"./job_results/{job_name}"):
-                            print("skipping", command,flush=True)
-                        else:
-                            if args.verbose or args.dry_run:
-                                fancy_job_command = ' '.join(job_cmd)
-                                print(fancy_job_command)
-                            if not args.dry_run:
-                                print(f"started: {job_name};  {command}",flush=True)
-                                stdout_file = open(f"./job_results/{job_name}.out",'a',buffering=1)
-                                stderr_file = open(f"./job_results/{job_name}.err",'a',buffering=1)
-                                process = subprocess.Popen(job_cmd,stdout=stdout_file, stderr=stderr_file)#,creationflags=subprocess.DETACHED_PROCESS)
-                                time.sleep(0.2)
-                                proc = procs[i] = (line_num, process)
-                        line_num += 1
-                        all_done = False
-                        waiting_only = False
+                # revert machine addition from previous loop iteration
+                machine_infos[best_machine_idx] = remove_from_machine_state(machine_infos[best_machine_idx], best_gpu_idx)
 
-                    if proc is not None:
-                        all_done = False
-            if waiting_only:
-                time.sleep(1)
-    except BaseException as be:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        print("interrupting tasks")
-        for procs in machine_procs:
-            for proc in procs:
-                if proc is not None:
-                    proc[1].send_signal(signal.SIGINT)
-        print("waiting for tasks to terminate")
-        for procs in machine_procs:
-            for proc in procs:
-                if proc is not None:
-                    proc[1].wait()
-        raise be
+                poll_all_jobs()
+
+            not_polled = False
+
+            best_machine_idx = get_best_machine(machine_infos, machine_config)
+            best_gpu_idx = get_best_gpu(machine_config, machine_infos[best_machine_idx])
+            machine_infos[best_machine_idx] = add_to_machine_state(machine_infos[best_machine_idx], machine_config, best_gpu_idx)
+
+
+        # start new job
+        command = lines[line_num].strip()
+        export_prefix = f"export CUDA_VISIBLE_DEVICES={best_gpu_idx} &&" if not args.reserve and not args.no_gpu_required else ""
+        machine = machine_configs[best_machine_idx]
+        job_name = job_names[line_num]
+        if not args.dry_run:
+            if args.kabuki_commands:
+                proc, new_job_name = make_kabuki_run_command(machine, job_name, export_prefix, command, best_gpu_idx, args)
+                job_name = job_names[line_num] = new_job_name
+            else:
+                proc = make_basic_run_command(machine, job_name, export_prefix, command, best_gpu_idx, args)
+        else:
+            proc = None
+
+        proc_list.append((
+            line_num,
+            best_machine_idx,
+            best_gpu_idx,
+            proc
+        ))
+
+        print(f"started: {job_name};  {command}",flush=True)
+        if not args.dry_run:
+            # give time as to not overload the sshd server
+            time.sleep(0.1)
+    while proc_list:
+        poll_all_jobs()
+        if not args.dry_run:
+            time.sleep(1)
 
 
 if __name__ == "__main__":
