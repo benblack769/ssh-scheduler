@@ -24,6 +24,32 @@ pip install git+https://github.com/benblack769/kabuki.git
 * **Non exclusive use of machines:** Free resources on machines are calculated at batch submission. The system will only use free resources on remote machines (calculated at batch submission time), meaning that other jobs //users can be running on those systems without resource overload issues.
 * **Low latency job submission:** Jobs are fast to start, a whole batch can be started and finished in 5-10 seconds, under optimal conditions.
 
+## Tools
+
+Kabuki has several powerful command line tools to execute remote tasks.
+
+* execute_remote: a CLI for executing a command on a remote machine
+* execute_batch: Distribute many commands across many remote machines, with specified resource constraints. Queries remote machines for resource capacity. Full support for Nvidia GPU resource distribution.
+* execute_to: a CLI for executing a single command on many remote machines (typically for installation or other system management)
+* combine_folders: a CLI for combining a set of folders data. Meant to collate output of batch of commands.
+
+## Modules
+
+* execute remote workflow
+* query remote machine info
+* machine virtual resources handler (performs allocation validation/scoring as well as allocation and deallocation resource limits)
+    * __init__(avaliable_resources)
+    * score(allocation) # returns -inf if not enough resoures
+    * allocate(allocation) # throws error if not enough resources, updates object state
+* machine runner: sends signals on start and stop of queued job. Puts time in-between queue and start to manage load on remote server.
+    * __init__(machine_info)
+    * queue_up(command, forward_loc, backward_loc, job_name, etc)
+    * register_started(callback(job_name))
+    * register_ended(callback(job_name))
+* combine_folders:
+    * Identical files from different folders are collapsed to the same files, different paths are all included, same path with different filename results in error
+    * useage: combine_folders dest src1 src2 ...
+
 ## Example
 
 Full example located in `example` folder. Need to change `example/machine.yaml` to get it to work.
@@ -52,14 +78,14 @@ To define a job, you need a batch script where every line is a command you want 
 echo "one job"
 echo "another job"
 echo "another job" && echo "a combined job (bash syntax applies)"
-bash examples/local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forward"
+bash examples/local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forwards"
 ```
 
 If you want, you can specify the forward and backward copies at the job level instead of globally. You can do that by running partially complete `execute_remote` commands like so:
 
 ```
-execute_remote --copy-forward example1 test.py --copy-backwards example1 --job-name example1 'python test.py example1'
-execute_remote --copy-forward example2 test.py --copy-backwards example2 --job-name example2 'python test.py example2'
+execute_remote --copy-forwards example1 test.py --copy-backwards example1 --job-name example1 'python test.py example1'
+execute_remote --copy-forwards example2 test.py --copy-backwards example2 --job-name example2 'python test.py example2'
 ```
 
 This will copy forward example1 to the remote machine for the example1 job and example2 for the example2 job. Machines and GPUs will be allocated automatically, so any specification of a machine will be ignored, and specifying a GPU may screw things up.
@@ -132,9 +158,9 @@ started: example_batch_script.sh.2;  export CUDA_VISIBLE_DEVICES=1 && echo "jobs
 finished: example_batch_script.sh.1; echo "one job"         # jobs finishing normally
 started: example_batch_script.sh.3;  export CUDA_VISIBLE_DEVICES=0 && echo "another job" && echo "a combined job (bash syntax applies)"
 failed: example_batch_script.sh.2; echo "jobs will tell you if they fail" && exit 1     # jobs exiting with non-zero code (indicating a possible error, should check job_results/example_batch_script.sh.2)
-started: example_batch_script.sh.4;  export CUDA_VISIBLE_DEVICES=1 && bash local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forward"
+started: example_batch_script.sh.4;  export CUDA_VISIBLE_DEVICES=1 && bash local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forwards"
 finished: example_batch_script.sh.3; echo "another job" && echo "a combined job (bash syntax applies)"
-failed: example_batch_script.sh.4; bash local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forward" # in this case the error is that local.sh is not in the current directory (need to run examples/local.sh)
+failed: example_batch_script.sh.4; bash local.sh && echo "you can also call local files because they are copied by the remote by the default value of --copy-forwards" # in this case the error is that local.sh is not in the current directory (need to run examples/local.sh)
 ```
 
 ### Step 6: Get results

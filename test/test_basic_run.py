@@ -34,7 +34,7 @@ class TestStringMethods(unittest.TestCase):
         expected_data_path = script_path / "data" / "expected_result.txt"
         expected_data = open(expected_data_path).read()
         exec_command = f"sed s/robot/human/g {forward_data_path} | tee outfile.txt"
-        test_command = f'execute_remote --machine {self.machine_data} --copy-forward {forward_data_path} --copy-backwards outfile.txt --job-name={self.job_name} "{exec_command}"'
+        test_command = f'execute_remote --machine {self.machine_data} --copy-forwards {forward_data_path} --copy-backwards outfile.txt --job-name={self.job_name} "{exec_command}"'
         res = subprocess.run(test_command, timeout=10, shell=True, stdout=subprocess.PIPE)
         self.assertEqual(res.returncode, 0, f"command failed with code {res.returncode}")
         actual_data = res.stdout.decode("utf-8")

@@ -82,6 +82,10 @@ def get_full_command():
     return f"{get_cpu_usage()} && printf \"<<>>\" && {get_cpu_count()} && printf \"<<>>\" && {get_gpu_info()} || echo"
 
 def parse_full_output(out_str):
+    '''
+    output looks like this:
+    {"cpu_usage": 0.124, "mem_free": 30607, "cpu_count": 24, "gpus": [{"name": "GeForce RTX 2060", "mem": 5934, "free": 5933, "utilization": 0.0}, {"name": "GeForce RTX 2060", "mem": 5932, "free": 5931, "utilization": 0.0}]}
+    '''
     beg = out_str.find("<<>>")
     mid = out_str.rfind("<<>>")
     cpu_data = out_str[:beg]
