@@ -98,7 +98,7 @@ def generate_command(
 
     job_name = rand_fname() if job_name == "__random__" else job_name
     job_result_folder = os.path.expanduser("./job_results/")+job_name
-    if os.path.exists(job_result_folder):
+    if copy_backwards and os.path.exists(job_result_folder):
         raise RuntimeError(f"results for job '{job_name}' already exist, move or remove files before continuing")
 
     run_folder = "job_data/"+job_name
@@ -124,7 +124,7 @@ def generate_command(
     q = '"'
     vprint(f"Script contents:\n{eval(q+script_contents+q)}")
     tararg = f"tar --exclude job_results --exclude .git -cmf - {' '.join(copy_forwards)} {local_script_file}"
-    setup_data = f"(mkdir -p {run_folder} && cd {run_folder} && tar -x ) "
+    setup_data = f"(rm -rf {run_folder} && mkdir -p {run_folder} && cd {run_folder} && tar -x ) "
     # quoted_command = shlex.quote(.command)
     # vprint(quoted_command)
     return_results_command = f"tar -cmf - {' '.join(copy_backwards)}"
@@ -140,7 +140,7 @@ def generate_command(
     get_stdout_txt = f"sed -n '/{stdout_separator}/q;p'"
     divert_all_data = f"tee {local_all_out_file}"
     remove_stdout = f"sed -n '/{stdout_separator}/,$p' {local_all_out_file} | tail -n +2 | tar xm "
-    unpack_tar_out = f"( mkdir -p {local_data_folder} && cd {local_data_folder} && {remove_stdout} ) "
+    unpack_tar_out = f"( mkdir -p {local_data_folder} && cd {local_data_folder} && {remove_stdout} ) " if copy_backwards else ' : '
     post_process_output = f"{divert_all_data} | {get_stdout_txt}"
 
     cleanup_local_files = f"rm -f {local_all_out_file} {local_script_file}"
