@@ -1,3 +1,3 @@
 #!/user/bin/env python3
-from kabuki import better_basic_run
+from ssh_scheduler import better_basic_run
 better_basic_run.main()

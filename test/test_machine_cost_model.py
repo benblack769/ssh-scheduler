@@ -1,6 +1,6 @@
 import copy
-from kabuki.machine_cost_model import init_machine_limit, add_to_machine_state, remove_from_machine_state
-from kabuki.machine_cost_model import machine_cost, get_best_gpu, get_process_gpu_limit, is_over_limit
+from ssh_scheduler.machine_cost_model import init_machine_limit, add_to_machine_state, remove_from_machine_state
+from ssh_scheduler.machine_cost_model import machine_cost, get_best_gpu, get_process_gpu_limit, is_over_limit
 
 class ExampleArgs:
     def __init__(self):

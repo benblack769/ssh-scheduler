@@ -1,8 +1,4 @@
-# Kabuki
-
-<p align="center">
-    <img src="Kabuki_Text.png" width="500px"/>
-</p>
+# `ssh` Scheduler
 
 A minimal-setup ssh based distributed batch processing system for ML.
 
@@ -11,7 +7,7 @@ Intended use case is for a researcher running many experiments on many different
 ## Install
 
 ```
-pip install git+https://github.com/benblack769/kabuki.git
+pip install git+https://github.com/benblack769/ssh-scheduler.git
 ```
 
 ## Features
@@ -26,7 +22,7 @@ pip install git+https://github.com/benblack769/kabuki.git
 
 ## Tools
 
-Kabuki has several powerful command line tools to execute remote tasks.
+Ssh Scheduler has several powerful command line tools to execute remote tasks.
 
 * execute_remote: a CLI for executing a command on a remote machine
 * execute_batch: Distribute many commands across many remote machines, with specified resource constraints. Queries remote machines for resource capacity. Full support for Nvidia GPU resource distribution.

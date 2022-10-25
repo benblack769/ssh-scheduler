@@ -12,8 +12,8 @@ import shlex
 import copy
 import os
 import signal
-from kabuki import better_basic_run
-from kabuki.query_machine_info import get_full_command, parse_full_output
+from ssh_scheduler import better_basic_run
+from ssh_scheduler.query_machine_info import get_full_command, parse_full_output
 from .machine_cost_model import machine_cost, is_over_limit, get_process_gpu_limit, get_best_gpu, get_best_machine, init_machine_limit, add_to_machine_state, remove_from_machine_state
 from .better_basic_run import generate_command
 
@@ -68,7 +68,7 @@ def make_basic_run_command(machine, job_name, export_prefix, command, gpu_choice
     return proc
 
 
-def make_kabuki_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
+def make_ssh_scheduler_run_command(machine, job_name, export_prefix, command, gpu_choice, args):
     # add required args for parsing
     final_command = command
     if "--copy-forward" not in command:
@@ -107,7 +107,7 @@ def main():
     parser.add_argument('--gpu-utilization', type=float, default=0.75, help='gpu utilization consumed')
     parser.add_argument('--verbose', action="store_true", help='print out debug information')
     parser.add_argument('--dry-run', action="store_true", help='just print out first round of commands')
-    parser.add_argument('--kabuki-commands', action="store_true", help='Whether the batch file should be interpreted as kabuki commands instead of bash commands')
+    parser.add_argument('--commands', action="store_true", help='Whether the batch file should be interpreted as ssh_scheduler commands instead of bash commands')
     parser.add_argument('filename', help="a file where each line contains a command")
 
     args = parser.parse_args()
@@ -172,8 +172,8 @@ def main():
         machine = machine_configs[best_machine_idx]
         job_name = job_names[line_num]
         if not args.dry_run:
-            if args.kabuki_commands:
-                proc, new_job_name = make_kabuki_run_command(machine, job_name, export_prefix, command, best_gpu_idx, args)
+            if args.commands:
+                proc, new_job_name = make_ssh_scheduler_run_command(machine, job_name, export_prefix, command, best_gpu_idx, args)
                 job_name = job_names[line_num] = new_job_name
             else:
                 proc = make_basic_run_command(machine, job_name, export_prefix, command, best_gpu_idx, args)
